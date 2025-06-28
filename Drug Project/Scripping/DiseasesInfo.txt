@@ -1,0 +1,70 @@
+# Install required libraries
+!pip install requests beautifulsoup4 pandas
+
+# Import necessary modules
+import pandas as pd
+import requests
+from bs4 import BeautifulSoup
+
+# Upload your file (if working on Colab, ensure it's uploaded)
+from google.colab import files
+uploaded = files.upload()
+
+# Load the CSV file
+df = pd.read_csv(next(iter(uploaded.keys())))
+
+# Preview the first few rows of the dataset
+print("Dataset preview:")
+print(df.head())
+
+# Check column names (ensure URLs are correctly identified)
+print("\nColumns in the dataset:", df.columns)
+
+# Assuming one column contains URLs and another column has disease names
+url_column = 'Disease Link'  # Replace with the name of the URL column
+disease_column = 'Disease Name'  # Replace with the name of the disease column
+
+# Function to scrape drug-related information from a webpage
+def scrape_drug_info(url):
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Extract relevant text (customize based on webpage structure)
+        paragraphs = soup.find_all('p')
+        text = " ".join([p.get_text(strip=True) for p in paragraphs])
+
+        # Perform additional filtering if necessary to target drug information
+        return text
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching {url}: {e}")
+        return None
+
+# Create an empty list to store scraped data
+scraped_data = []
+
+# Iterate through each row and scrape data
+for index, row in df.iterrows():
+    disease = row[disease_column]
+    url = row[url_column]
+    print(f"Scraping data for {disease} from {url}...")
+    drug_info = scrape_drug_info(url)
+    scraped_data.append({
+        'Disease': disease,
+        'URL': url,
+        'Drug Information': drug_info
+    })
+
+# Convert scraped data into a DataFrame
+scraped_df = pd.DataFrame(scraped_data)
+
+# Save the scraped data to a new CSV file
+output_file = 'scraped_disease_drug_info.csv'
+scraped_df.to_csv(output_file, index=False)
+print(f"Scraped data saved to {output_file}")
+
+# Allow download of the resulting file
+from google.colab import files
+files.download(output_file)

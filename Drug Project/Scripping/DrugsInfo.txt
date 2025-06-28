@@ -1,0 +1,162 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+# Base URL for drug pages
+base_url = "https://www.drugs.com/"
+
+# Function to extract drug information
+def get_drug_info(drug_name, drug_url):
+    response = requests.get(drug_url)
+    
+    # Check for page existence (404 Not Found)
+    if response.status_code == 404:
+        print(f"Page not found for {drug_name}. Skipping.")
+        return None  # Skip this drug if the page is not found
+    
+    soup = BeautifulSoup(response.text, 'html.parser')
+
+    # Initialize variables
+    actual_drug_name = "Not Available"
+    generic_name = "Not Available"
+    drug_class = "Not Available"
+
+    try:
+        # Locate the drug name
+        drug_name_elem = soup.find('h1')
+        if drug_name_elem:
+            actual_drug_name = drug_name_elem.get_text(strip=True)
+
+            # Locate the section right under the drug name
+            sibling_elem = drug_name_elem.find_next('p')
+            if sibling_elem:
+                sibling_text = sibling_elem.get_text(separator=" ").strip()
+
+                # Check for "Generic name:" and "Drug class:"
+                if "Generic name:" in sibling_text:
+                    generic_name = sibling_text.split("Generic name:")[1].split("Drug class:")[0].strip()
+                if "Drug class:" in sibling_text:
+                    drug_class = sibling_text.split("Drug class:")[1].strip()
+                    # If multiple drug classes, split and join with commas
+                    drug_class = ', '.join([cls.strip() for cls in drug_class.split(',')])
+
+    except Exception as e:
+        print(f"Error extracting drug details for {drug_name}: {e}")
+
+    # Helper function to extract text from specific sections intelligently
+    def extract_specific_section(soup, section_titles):
+        section_data = ''
+        try:
+            # Find the first relevant section header that matches any of the section_titles
+            for title in section_titles:
+                section = soup.find('h2', string=lambda text: text and title.lower() in text.lower())
+                if section:
+                    # Collect all subsequent paragraphs that belong to this section
+                    for sibling in section.find_next_siblings():
+                        if sibling.name == 'h2':  # Stop when the next section starts
+                            break
+                        if sibling.name in ['p', 'ul', 'ol']:  # Capture paragraphs and lists
+                            section_data += sibling.get_text(strip=True) + '\n'
+
+                    # Ensure the content is relevant (for example, only text related to dosage or side effects)
+                    if not section_data:
+                        section_data = "Not Available"
+                    return section_data.strip()
+
+        except Exception as e:
+            print(f"Error extracting specific section: {e}")
+        return "Not Available"
+
+    # Extract specific sections with intelligent matching
+    uses = extract_specific_section(soup, [f"What is {drug_name}?"])
+    warnings = extract_specific_section(soup, ["Warnings"])
+    pre_use_instructions = extract_specific_section(soup, ["Before taking this medicine"])
+
+    # Function to extract dosage information with missed dose and overdose integrated
+    def extract_dosage_info(soup):
+        dosage_info = extract_specific_section(soup, ["How should I take", "Dosage", "Dosage form", "Dosing"])
+
+        missed_dose_info = ""
+        overdose_info = ""
+
+        # Look for missed dose information and include it in the dosage
+        missed_dose_section = soup.find('h2', string=lambda text: text and "missed dose" in text.lower())
+        if missed_dose_section:
+            for sibling in missed_dose_section.find_next_siblings():
+                if sibling.name == 'h2':  # Stop when the next section starts
+                    break
+                if sibling.name in ['p', 'ul', 'ol']:
+                    missed_dose_info += sibling.get_text(strip=True) + '\n'
+
+        # Look for overdose information and include it in the dosage
+        overdose_section = soup.find('h2', string=lambda text: text and "overdose" in text.lower())
+        if overdose_section:
+            for sibling in overdose_section.find_next_siblings():
+                if sibling.name == 'h2':  # Stop when the next section starts
+                    break
+                if sibling.name in ['p', 'ul', 'ol']:
+                    overdose_info += sibling.get_text(strip=True) + '\n'
+
+        # Combine all dosage information, including missed dose and overdose info
+        full_dosage_info = dosage_info + "\n" + missed_dose_info + "\n" + overdose_info
+        return full_dosage_info.strip()
+
+    # Extract dosage and side effects with refined logic
+    dosage = extract_dosage_info(soup)
+
+    # Extract side effects in a previous format
+    side_effects = extract_specific_section(soup, ["Side effects"])
+
+    # If no specific side effects found, mark as Not Available
+    side_effects = side_effects if side_effects else "Not Available"
+
+    return {
+        "Drug Name": actual_drug_name,
+        "Generic Name": generic_name,
+        "Drug Class": drug_class,
+        "Uses": uses,
+        "Warnings": warnings,
+        "Pre-Use Instructions": pre_use_instructions,
+        "Dosage": dosage,
+        "Side Effects": side_effects
+    }
+
+# Main function to scrape data for drugs from an Excel file
+def scrape_drugs_from_excel(excel_file):
+    df = pd.read_excel(excel_file)
+    
+    if 'Drug Name' not in df.columns:
+        print("Error: The Excel file must contain a column named 'Drug Name'.")
+        return
+
+    # Prepare the list to hold all drug information
+    drug_data = []
+
+    for index, row in df.iterrows():
+        drug_name = row['Drug Name']
+        drug_url = f"{base_url}{drug_name.lower().replace(' ', '-')}.html"
+        print(f"Scraping {drug_name} at {drug_url}...")
+
+        # Fetch the drug info
+        try:
+            drug_info = get_drug_info(drug_name, drug_url)
+            if drug_info:  # Only proceed if data is valid
+                drug_data.append(drug_info)  # Add the extracted info to the list
+                print(f"{drug_name} is done.")
+            else:
+                print(f"Skipped {drug_name} due to missing page.")
+        except Exception as e:
+            print(f"Failed to scrape {drug_name}. Error: {e}")
+
+    # Convert the list of drug data to a DataFrame
+    drug_df = pd.DataFrame(drug_data)
+
+    # Write the DataFrame to an Excel file
+    output_file = "drugs_info_from_excel.xlsx"
+    drug_df.to_excel(output_file, index=False)
+    print(f"Scraping completed. Data saved to '{output_file}'.")
+
+# Run the scraper
+if __name__ == "__main__":
+    excel_file_path = r"G:\Faisal ahmed rudro\487\Rudro Data for Big Data.xlsx"  # Update path to your Excel file
+    scrape_drugs_from_excel(excel_file_path)
