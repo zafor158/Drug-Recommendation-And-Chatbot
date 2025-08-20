@@ -61,14 +61,10 @@ It leverages **drug reviews, conditions, and official medical literature** to pr
 ---
 
 ## 🖥️ User Interface  
-### Chatbot Interface (Fine-tuned Gemma Model)  
-<p align="center">
-  <img src="docs/chatbot_ui.png" alt="Chatbot Interface" width="600">
-</p>  
 
-### RAG Model Interface  
 <p align="center">
-  <img src="docs/rag_ui.png" alt="RAG Interface" width="600">
+  <img  src="https://github.com/user-attachments/assets/18925427-310a-43ad-8585-4967c816a680" />
+
 </p>  
 
 ---
