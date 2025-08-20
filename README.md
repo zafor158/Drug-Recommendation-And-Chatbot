@@ -36,7 +36,7 @@ It leverages **drug reviews, conditions, and official medical literature** to pr
 - RAG pipeline for contextual search + response generation.  
 
 <p align="center">
-  <img src="<img width="592" height="426" alt="image" src="https://github.com/user-attachments/assets/394d836d-4873-434d-840a-187432732733" />
+  <img  src="https://github.com/user-attachments/assets/394d836d-4873-434d-840a-187432732733" />
 " width="600">
 </p>  
 
