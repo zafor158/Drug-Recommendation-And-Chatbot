@@ -63,7 +63,8 @@ It leverages **drug reviews, conditions, and official medical literature** to pr
 
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/394d836d-4873-434d-840a-187432732733" width="750" alt="Chatbot UI"/>
+  <img src="https://github.com/user-attachments/assets/7ba0aa13-e0c8-4780-8612-49d839c86b84" width="584" height="577" alt="image" />
+
 </p>
 
 
